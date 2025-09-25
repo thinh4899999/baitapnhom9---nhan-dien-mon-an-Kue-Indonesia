@@ -1,0 +1,308 @@
+# =============================================================================
+# GIAO DIỆN ĐỠN GIẢN CHO GOOGLE COLAB - HOẠT ĐỘNG 100%
+# =============================================================================
+
+# Import các thư viện cơ bản
+import tensorflow as tf
+from tensorflow.keras.models import load_model
+from tensorflow.keras.utils import load_img, img_to_array
+import numpy as np
+import matplotlib.pyplot as plt
+from PIL import Image
+import os
+from google.colab import files
+import io
+
+print("✅ Đã import thành công các thư viện cần thiết")
+
+# =============================================================================
+# CLASS CHÍNH - ĐƠN GIẢN VÀ HIỆU QUẢ
+# =============================================================================
+
+class SimpleFoodClassifier:
+    def __init__(self):
+        self.model = None
+        self.IMG_SIZE = 224
+        self.class_names = ['kue_dadar_gulung', 'kue_klepon', 'kue_putu']
+        self.food_info = {
+            'kue_dadar_gulung': {
+                'name': 'Kue Dadar Gulung 🥞',
+                'description': 'Bánh crepe xanh cuộn nhân dừa nạo'
+            },
+            'kue_klepon': {
+                'name': 'Kue Klepon 🍡', 
+                'description': 'Bánh nếp tròn nhân đường thốt nốt, phủ dừa'
+            },
+            'kue_putu': {
+                'name': 'Kue Putu 🧁',
+                'description': 'Bánh hấp tre truyền thống nhiều màu sắc'
+            }
+        }
+        print("🎯 Indonesian Food Classifier đã được khởi tạo")
+    
+    def load_model(self):
+        """Tải model AI"""
+        print("🔍 Đang tìm kiếm model...")
+        
+        # Danh sách các file model có thể có
+        model_files = [
+            'best_kue_model.h5',
+            'kue_classifier_final.h5', 
+            'improved_cnn_model.h5',
+            'best_model.h5',
+            'nhandienmonan.h5'
+        ]
+        
+        # Thêm path /content/ 
+        all_paths = model_files + [f'/content/{f}' for f in model_files]
+        
+        # Tìm model có sẵn
+        found_model = None
+        for path in all_paths:
+            if os.path.exists(path):
+                found_model = path
+                break
+        
+        if found_model is None:
+            print("❌ KHÔNG TÌM THẤY MODEL!")
+            print("📋 Các file cần thiết:")
+            for f in model_files[:3]:
+                print(f"   • {f}")
+            print("\n💡 Giải pháp:")
+            print("1. Chạy code training trước để tạo model")
+            print("2. Đảm bảo file model được lưu thành công")
+            print("3. Kiểm tra tên file chính xác")
+            return False
+        
+        try:
+            print(f"⏳ Đang tải model từ: {found_model}")
+            self.model = load_model(found_model)
+            print(f"✅ ĐÃ TÁI MODEL THÀNH CÔNG!")
+            print(f"🎯 Sẵn sàng nhận diện 3 loại kue Indonesia")
+            return True
+            
+        except Exception as e:
+            print(f"❌ Lỗi khi tải model: {str(e)}")
+            return False
+    
+    def upload_image(self):
+        """Upload ảnh từ máy tính"""
+        print("📤 Chọn ảnh từ máy tính của bạn...")
+        uploaded = files.upload()
+        
+        if not uploaded:
+            print("❌ Không có file nào được chọn")
+            return None
+        
+        # Lấy file đầu tiên
+        filename = list(uploaded.keys())[0]
+        print(f"✅ Đã upload: {filename}")
+        
+        return filename
+    
+    def predict_image(self, image_path):
+        """Dự đoán ảnh"""
+        if self.model is None:
+            print("❌ Chưa load model! Chạy load_model() trước")
+            return
+        
+        try:
+            # Load và hiển thị ảnh gốc
+            img = Image.open(image_path)
+            print("📷 Ảnh gốc:")
+            plt.figure(figsize=(8, 6))
+            plt.imshow(img)
+            plt.title('Ảnh đầu vào', fontsize=14, fontweight='bold')
+            plt.axis('off')
+            plt.show()
+            
+            # Preprocess ảnh
+            img_processed = img.resize((self.IMG_SIZE, self.IMG_SIZE))
+            if img_processed.mode != 'RGB':
+                img_processed = img_processed.convert('RGB')
+            
+            img_array = np.array(img_processed)
+            img_array = np.expand_dims(img_array, axis=0)  
+            img_array = img_array.astype('float32') / 255.0
+            
+            print("🧠 AI đang phân tích...")
+            
+            # Dự đoán
+            predictions = self.model.predict(img_array, verbose=0)
+            predicted_idx = np.argmax(predictions[0])
+            confidence = predictions[0][predicted_idx]
+            predicted_class = self.class_names[predicted_idx]
+            
+            # Hiển thị kết quả chính
+            print("=" * 50)
+            print("🎉 KẾT QUẢ NHẬN DIỆN:")
+            print("=" * 50)
+            
+            food_name = self.food_info[predicted_class]['name']
+            food_desc = self.food_info[predicted_class]['description']
+            
+            print(f"🍽️  MÓN ĂN: {food_name}")
+            print(f"📝  MÔ TẢ: {food_desc}")
+            print(f"🎯  ĐỘ TIN CẬY: {confidence:.2%}")
+            
+            # Đánh giá độ tin cậy
+            if confidence >= 0.8:
+                print("✅  ĐÁNH GIÁ: Rất chính xác")
+            elif confidence >= 0.6:
+                print("⚠️   ĐÁNH GIÁ: Khá chính xác")
+            else:
+                print("❓  ĐÁNH GIÁ: Cần xem xét thêm")
+            
+            print("=" * 50)
+            print("📊 CHI TIẾT TẤT CẢ DỰ ĐOÁN:")
+            print("=" * 50)
+            
+            # Hiển thị tất cả predictions
+            for i, (class_name, prob) in enumerate(zip(self.class_names, predictions[0])):
+                food_name = self.food_info[class_name]['name']
+                percentage = prob * 100
+                
+                # Tạo thanh progress đơn giản bằng ký tự
+                bar_length = 30
+                filled_length = int(percentage / 100 * bar_length)
+                bar = '█' * filled_length + '░' * (bar_length - filled_length)
+                
+                print(f"{food_name:25} │{bar}│ {percentage:5.1f}%")
+            
+            print("=" * 50)
+            
+            # Vẽ biểu đồ
+            self.plot_predictions(predictions[0])
+            
+            return predicted_class, confidence
+            
+        except Exception as e:
+            print(f"❌ Lỗi khi phân tích: {str(e)}")
+            return None, 0
+    
+    def plot_predictions(self, predictions):
+        """Vẽ biểu đồ kết quả"""
+        food_names = [self.food_info[name]['name'] for name in self.class_names]
+        percentages = predictions * 100
+        
+        plt.figure(figsize=(12, 6))
+        
+        # Subplot 1: Bar chart
+        plt.subplot(1, 2, 1)
+        colors = ['#FF6B6B', '#4ECDC4', '#45B7D1']
+        bars = plt.bar(food_names, percentages, color=colors, alpha=0.8)
+        plt.title('Kết Quả Dự Đoán', fontsize=14, fontweight='bold')
+        plt.ylabel('Xác Suất (%)')
+        plt.xticks(rotation=45, ha='right')
+        
+        # Thêm text trên bars
+        for bar, pct in zip(bars, percentages):
+            height = bar.get_height()
+            plt.text(bar.get_x() + bar.get_width()/2., height + 1,
+                    f'{pct:.1f}%', ha='center', va='bottom', fontweight='bold')
+        
+        # Subplot 2: Pie chart
+        plt.subplot(1, 2, 2)
+        plt.pie(percentages, labels=food_names, colors=colors, autopct='%1.1f%%', 
+                startangle=90, textprops={'fontsize': 10})
+        plt.title('Phân Bố Xác Suất', fontsize=14, fontweight='bold')
+        
+        plt.tight_layout()
+        plt.show()
+
+# =============================================================================
+# FUNCTIONS ĐƠN GIẢN ĐỂ SỬ DỤNG
+# =============================================================================
+
+def quick_start():
+    """Hàm khởi động nhanh"""
+    print("🚀 KHỞI ĐỘNG INDONESIAN FOOD AI")
+    print("=" * 50)
+    
+    # Tạo classifier
+    classifier = SimpleFoodClassifier()
+    
+    # Load model
+    if not classifier.load_model():
+        return None
+    
+    print("\n✅ SẴN SÀNG SỬ DỤNG!")
+    print("📱 Sử dụng các lệnh sau:")
+    print("   • classifier.upload_and_predict() - Upload và nhận diện")
+    print("   • classifier.predict_image('path/to/image.jpg') - Dự đoán ảnh có sẵn")
+    
+    return classifier
+
+def upload_and_predict():
+    """Upload ảnh và dự đoán ngay"""
+    classifier = SimpleFoodClassifier()
+    
+    print("🤖 Bước 1: Tải model AI...")
+    if not classifier.load_model():
+        return
+    
+    print("\n📤 Bước 2: Upload ảnh...")
+    image_path = classifier.upload_image()
+    if image_path is None:
+        return
+    
+    print(f"\n🔍 Bước 3: Phân tích ảnh {image_path}...")
+    result = classifier.predict_image(image_path)
+    
+    if result[0]:
+        print(f"\n🎉 HOÀN TẤT! Món ăn được nhận diện: {result[0]}")
+    
+    return result
+
+def test_sample_image(image_path):
+    """Test với ảnh có sẵn"""
+    classifier = SimpleFoodClassifier()
+    
+    if not classifier.load_model():
+        return
+    
+    if not os.path.exists(image_path):
+        print(f"❌ Không tìm thấy file: {image_path}")
+        return
+    
+    return classifier.predict_image(image_path)
+
+# =============================================================================
+# CHẠY DEMO
+# =============================================================================
+
+print("🌟 INDONESIAN FOOD AI - SIMPLE VERSION")
+print("🎯 Nhận diện 3 loại kue truyền thống Indonesia")
+print("🥞 Kue Dadar Gulung • 🍡 Kue Klepon • 🧁 Kue Putu")
+print("=" * 60)
+
+print("📋 CÁCH SỬ DỤNG:")
+print("1. Chạy: classifier = quick_start()")
+print("2. Upload ảnh: upload_and_predict()")
+print("3. Hoặc test ảnh có sẵn: test_sample_image('path/image.jpg')")
+print("=" * 60)
+
+# Tự động tạo classifier sẵn sàng
+try:
+    print("🔄 Đang khởi tạo classifier tự động...")
+    food_classifier = quick_start()
+    
+    if food_classifier:
+        print("\n🎉 THÀNH CÔNG!")
+        print("🚀 Classifier đã sẵn sàng trong biến 'food_classifier'")
+        print("\n💡 Sử dụng ngay:")
+        print("   upload_and_predict()  # Upload ảnh từ máy tính")
+        
+        # Thêm method tiện lợi
+        food_classifier.upload_and_predict = lambda: upload_and_predict()
+        
+    else:
+        print("\n⚠️  Cần chạy code training trước để tạo model!")
+        
+except Exception as e:
+    print(f"❌ Lỗi khởi tạo: {str(e)}")
+    print("💡 Chạy thủ công: classifier = SimpleFoodClassifier()")
+
+print("\n" + "="*60)
+print("✨ Ready to classify Indonesian food! ✨")
+print("="*60)
